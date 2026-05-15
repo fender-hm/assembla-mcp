@@ -1,4 +1,5 @@
 from __future__ import annotations
+import atexit
 import httpx
 from typing import Optional
 
@@ -23,6 +24,8 @@ class AssemblaClient:
             return self._handle(r)
         except httpx.TimeoutException:
             return {"error": "Request timed out — check your connection"}
+        except httpx.HTTPError as e:
+            return {"error": f"Network error: {e}"}
 
     def post(self, path: str, data: dict) -> dict | list:
         try:
@@ -30,6 +33,8 @@ class AssemblaClient:
             return self._handle(r)
         except httpx.TimeoutException:
             return {"error": "Request timed out — check your connection"}
+        except httpx.HTTPError as e:
+            return {"error": f"Network error: {e}"}
 
     def put(self, path: str, data: dict | None = None) -> dict | list:
         try:
@@ -37,6 +42,8 @@ class AssemblaClient:
             return self._handle(r)
         except httpx.TimeoutException:
             return {"error": "Request timed out — check your connection"}
+        except httpx.HTTPError as e:
+            return {"error": f"Network error: {e}"}
 
     def delete(self, path: str) -> dict:
         try:
@@ -46,6 +53,8 @@ class AssemblaClient:
             return self._handle(r)
         except httpx.TimeoutException:
             return {"error": "Request timed out — check your connection"}
+        except httpx.HTTPError as e:
+            return {"error": f"Network error: {e}"}
 
     def _handle(self, r: httpx.Response) -> dict | list:
         if r.status_code == 404:
@@ -64,6 +73,7 @@ class AssemblaClient:
 def init_client(api_key: str, api_secret: str) -> None:
     global _instance
     _instance = AssemblaClient(api_key, api_secret)
+    atexit.register(lambda: _instance._http.close() if _instance else None)
 
 
 def get_client() -> AssemblaClient:
