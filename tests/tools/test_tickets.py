@@ -1,7 +1,7 @@
 # tests/tools/test_tickets.py
 import json
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 import assembla_mcp.state as state_module
 from assembla_mcp.tools.tickets import (
     list_tickets, get_ticket, create_ticket, update_ticket, delete_ticket
@@ -23,9 +23,17 @@ def mock_client():
         yield c
 
 
-def test_list_tickets_returns_json(mock_client):
+@pytest.fixture
+def mock_ctx():
+    ctx = MagicMock()
+    ctx.elicit = AsyncMock(return_value=MagicMock(spec=[]))  # not AcceptedElicitation → no priority filter
+    return ctx
+
+
+@pytest.mark.anyio
+async def test_list_tickets_returns_json(mock_client, mock_ctx):
     mock_client.get.return_value = [{"number": 1, "summary": "Bug"}]
-    result = list_tickets()
+    result = await list_tickets(mock_ctx)
     data = json.loads(result)
     assert data[0]["number"] == 1
     mock_client.get.assert_called_once_with(
@@ -33,37 +41,41 @@ def test_list_tickets_returns_json(mock_client):
     )
 
 
-def test_list_tickets_no_active_space():
+@pytest.mark.anyio
+async def test_list_tickets_no_active_space(mock_ctx):
     state_module.state.active_space_id = None
-    result = list_tickets()
+    result = await list_tickets(mock_ctx)
     assert "No active space" in result
 
 
-def test_list_tickets_with_status_filter(mock_client):
+@pytest.mark.anyio
+async def test_list_tickets_with_status_filter(mock_client, mock_ctx):
     mock_client.get.return_value = [{"number": 1, "status": "open"}]
-    list_tickets(status="open")
+    await list_tickets(mock_ctx, status="open")
     mock_client.get.assert_called_once_with(
         "/spaces/space-123/tickets", params={"page": 1, "per_page": 25, "status": "open"}
     )
 
 
-def test_list_tickets_filters_by_component_client_side(mock_client):
+@pytest.mark.anyio
+async def test_list_tickets_filters_by_component_client_side(mock_client, mock_ctx):
     mock_client.get.return_value = [
         {"number": 1, "component_id": "comp-1"},
         {"number": 2, "component_id": "comp-2"},
     ]
-    result = list_tickets(component_id="comp-1")
+    result = await list_tickets(mock_ctx, component_id="comp-1")
     data = json.loads(result)
     assert len(data) == 1
     assert data[0]["number"] == 1
 
 
-def test_list_tickets_filters_by_tag_client_side(mock_client):
+@pytest.mark.anyio
+async def test_list_tickets_filters_by_tag_client_side(mock_client, mock_ctx):
     mock_client.get.return_value = [
         {"number": 1, "tags": "urgent,backend"},
         {"number": 2, "tags": "frontend"},
     ]
-    result = list_tickets(tag="urgent")
+    result = await list_tickets(mock_ctx, tag="urgent")
     data = json.loads(result)
     assert len(data) == 1
 

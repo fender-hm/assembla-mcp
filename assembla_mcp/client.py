@@ -58,11 +58,11 @@ class AssemblaClient:
 
     def _handle(self, r: httpx.Response) -> dict | list:
         if r.status_code == 404:
-            return {"error": "Not found (404)"}
+            return {"error": f"Not found (404): {r.text or 'no body'}"}
         if r.status_code == 403:
-            return {"error": "Forbidden (403) — check API key permissions"}
+            return {"error": f"Forbidden (403) — check API key permissions: {r.text or 'no body'}"}
         if r.status_code >= 500:
-            return {"error": f"Assembla server error ({r.status_code}) — try again"}
+            return {"error": f"Assembla server error ({r.status_code}): {r.text or 'no body'}"}
         if r.status_code >= 400:
             return {"error": f"Request failed ({r.status_code}): {r.text}"}
         if not r.content:

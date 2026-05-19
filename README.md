@@ -6,8 +6,6 @@ MCP server for [Assembla](https://www.assembla.com) — exposes tickets, milesto
 
 ```bash
 pip install assembla-mcp
-# or run directly with uvx (no install needed)
-uvx assembla-mcp
 ```
 
 ## Setup
@@ -24,8 +22,7 @@ Add to `~/.claude/settings.json`:
 {
   "mcpServers": {
     "assembla": {
-      "command": "uvx",
-      "args": ["assembla-mcp"],
+      "command": "assembla-mcp",
       "env": {
         "ASSEMBLA_API_KEY": "your-api-key",
         "ASSEMBLA_API_SECRET": "your-api-secret"
@@ -34,6 +31,8 @@ Add to `~/.claude/settings.json`:
   }
 }
 ```
+
+> **Tip:** If `assembla-mcp` is not on your `PATH`, use the full binary path instead. Run `which assembla-mcp` to find it.
 
 Restart Claude Code. At the start of each session call `set_active_space` to pick your workspace.
 
@@ -44,6 +43,8 @@ Restart Claude Code. At the start of each session call `set_active_space` to pic
 |------|-------------|
 | `list_spaces` | List all accessible spaces |
 | `set_active_space` | Set the active space by ID or name |
+| `list_space_tools` | List git repos and other tools in the active space |
+| `set_active_tool` | Set the active space tool (required before merge request tools) |
 
 ### Tickets
 | Tool | Description |
@@ -76,9 +77,13 @@ Restart Claude Code. At the start of each session call `set_active_space` to pic
 | `list_components` | List components in the active space (read-only) |
 
 ### Merge Requests
+
+> **Prerequisites:** call `list_space_tools` then `set_active_tool` before using these tools.
+> Merge requests in Assembla are scoped to a git repo (space tool), not just a space.
+
 | Tool | Description |
 |------|-------------|
-| `list_merge_requests` | List merge requests |
+| `list_merge_requests` | List merge requests (filter by `status`: `open`, `closed`, `ignored`) |
 | `get_merge_request` | Get a merge request by ID |
 | `create_merge_request` | Create a merge request |
 | `update_merge_request` | Update title, description, or target branch |

@@ -8,12 +8,16 @@ from assembla_mcp.tools.merge_requests import (
     list_mr_comments, add_mr_comment,
 )
 
+BASE = "/spaces/space-123/space_tools/tool-456/merge_requests"
+
 
 @pytest.fixture(autouse=True)
 def setup_state():
     state_module.state.active_space_id = "space-123"
+    state_module.state.active_tool_id = "tool-456"
     yield
     state_module.state.active_space_id = None
+    state_module.state.active_tool_id = None
 
 
 @pytest.fixture
@@ -28,7 +32,13 @@ def test_list_merge_requests(mock_client):
     mock_client.get.return_value = [{"id": "mr1", "title": "Add feature"}]
     result = list_merge_requests()
     assert '"title": "Add feature"' in result
-    mock_client.get.assert_called_once_with("/spaces/space-123/merge_requests")
+    mock_client.get.assert_called_once_with(BASE, params={"page": 1, "per_page": 25})
+
+
+def test_list_merge_requests_status_filter(mock_client):
+    mock_client.get.return_value = [{"id": "mr1", "status": "open"}]
+    list_merge_requests(status="open")
+    mock_client.get.assert_called_once_with(BASE, params={"page": 1, "per_page": 25, "status": "open"})
 
 
 def test_list_merge_requests_no_space():
@@ -36,11 +46,16 @@ def test_list_merge_requests_no_space():
     assert "No active space" in list_merge_requests()
 
 
+def test_list_merge_requests_no_tool():
+    state_module.state.active_tool_id = None
+    assert "No active tool" in list_merge_requests()
+
+
 def test_get_merge_request(mock_client):
     mock_client.get.return_value = {"id": "mr1", "title": "Fix"}
     result = get_merge_request("mr1")
     assert '"id": "mr1"' in result
-    mock_client.get.assert_called_once_with("/spaces/space-123/merge_requests/mr1")
+    mock_client.get.assert_called_once_with(f"{BASE}/mr1")
 
 
 def test_create_merge_request(mock_client):
@@ -65,21 +80,21 @@ def test_approve_merge_request(mock_client):
     mock_client.put.return_value = {"id": "mr1", "status": "approved"}
     result = approve_merge_request("mr1")
     assert "approved" in result.lower()
-    mock_client.put.assert_called_once_with("/spaces/space-123/merge_requests/mr1/approve")
+    mock_client.put.assert_called_once_with(f"{BASE}/mr1/approve")
 
 
 def test_decline_merge_request(mock_client):
     mock_client.put.return_value = {"id": "mr1", "status": "declined"}
     result = decline_merge_request("mr1")
     assert "declined" in result.lower()
-    mock_client.put.assert_called_once_with("/spaces/space-123/merge_requests/mr1/decline")
+    mock_client.put.assert_called_once_with(f"{BASE}/mr1/decline")
 
 
 def test_list_mr_comments(mock_client):
     mock_client.get.return_value = [{"id": "c1", "body": "LGTM"}]
     result = list_mr_comments("mr1")
     assert '"body": "LGTM"' in result
-    mock_client.get.assert_called_once_with("/spaces/space-123/merge_requests/mr1/comments")
+    mock_client.get.assert_called_once_with(f"{BASE}/mr1/comments")
 
 
 def test_add_mr_comment(mock_client):
@@ -91,6 +106,6 @@ def test_add_mr_comment(mock_client):
 
 
 def test_error_propagated(mock_client):
-    mock_client.get.return_value = {"error": "Not found (404)"}
+    mock_client.get.return_value = {"error": "Not found (404): no body"}
     result = get_merge_request("bad")
     assert "Not found" in result

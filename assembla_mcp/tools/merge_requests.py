@@ -9,23 +9,49 @@ def _resolve_space(space_id: Optional[str]) -> Optional[str]:
     return space_id or state.active_space_id
 
 
-def list_merge_requests(space_id: Optional[str] = None) -> str:
-    """List all merge requests in the active space."""
+def _resolve_tool(tool_id: Optional[str]) -> Optional[str]:
+    return tool_id or state.active_tool_id
+
+
+def _mr_base(sid: str, tid: str) -> str:
+    return f"/spaces/{sid}/space_tools/{tid}/merge_requests"
+
+
+def list_merge_requests(
+    status: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 25,
+    space_id: Optional[str] = None,
+    tool_id: Optional[str] = None,
+) -> str:
+    """List merge requests for the active space tool (git repo). Call list_space_tools then set_active_tool first.
+
+    status: filter by status — 'open', 'closed', or 'ignored' (default: all).
+    """
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
-    result = get_client().get(f"/spaces/{sid}/merge_requests")
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
+    params: dict = {"page": page, "per_page": per_page}
+    if status:
+        params["status"] = status
+    result = get_client().get(_mr_base(sid, tid), params=params)
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return json.dumps(result, indent=2)
 
 
-def get_merge_request(mr_id: str, space_id: Optional[str] = None) -> str:
+def get_merge_request(mr_id: str, space_id: Optional[str] = None, tool_id: Optional[str] = None) -> str:
     """Get a single merge request by its ID."""
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
-    result = get_client().get(f"/spaces/{sid}/merge_requests/{mr_id}")
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
+    result = get_client().get(f"{_mr_base(sid, tid)}/{mr_id}")
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return json.dumps(result, indent=2)
@@ -37,11 +63,15 @@ def create_merge_request(
     target_branch: str,
     description: str = "",
     space_id: Optional[str] = None,
+    tool_id: Optional[str] = None,
 ) -> str:
     """Create a new merge request."""
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
     data = {
         "merge_request": {
             "title": title,
@@ -50,7 +80,7 @@ def create_merge_request(
             "description": description,
         }
     }
-    result = get_client().post(f"/spaces/{sid}/merge_requests", data)
+    result = get_client().post(_mr_base(sid, tid), data)
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return json.dumps(result, indent=2)
@@ -62,11 +92,15 @@ def update_merge_request(
     description: Optional[str] = None,
     target_branch: Optional[str] = None,
     space_id: Optional[str] = None,
+    tool_id: Optional[str] = None,
 ) -> str:
     """Update a merge request's title, description, or target branch."""
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
     mr: dict = {}
     if title is not None:
         mr["title"] = title
@@ -74,52 +108,64 @@ def update_merge_request(
         mr["description"] = description
     if target_branch is not None:
         mr["target_branch"] = target_branch
-    result = get_client().put(f"/spaces/{sid}/merge_requests/{mr_id}", {"merge_request": mr})
+    result = get_client().put(f"{_mr_base(sid, tid)}/{mr_id}", {"merge_request": mr})
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return json.dumps(result, indent=2)
 
 
-def approve_merge_request(mr_id: str, space_id: Optional[str] = None) -> str:
+def approve_merge_request(mr_id: str, space_id: Optional[str] = None, tool_id: Optional[str] = None) -> str:
     """Approve a merge request."""
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
-    result = get_client().put(f"/spaces/{sid}/merge_requests/{mr_id}/approve")
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
+    result = get_client().put(f"{_mr_base(sid, tid)}/{mr_id}/approve")
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return f"Merge request {mr_id} approved."
 
 
-def decline_merge_request(mr_id: str, space_id: Optional[str] = None) -> str:
+def decline_merge_request(mr_id: str, space_id: Optional[str] = None, tool_id: Optional[str] = None) -> str:
     """Decline a merge request."""
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
-    result = get_client().put(f"/spaces/{sid}/merge_requests/{mr_id}/decline")
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
+    result = get_client().put(f"{_mr_base(sid, tid)}/{mr_id}/decline")
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return f"Merge request {mr_id} declined."
 
 
-def list_mr_comments(mr_id: str, space_id: Optional[str] = None) -> str:
+def list_mr_comments(mr_id: str, space_id: Optional[str] = None, tool_id: Optional[str] = None) -> str:
     """List all comments on a merge request."""
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
-    result = get_client().get(f"/spaces/{sid}/merge_requests/{mr_id}/comments")
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
+    result = get_client().get(f"{_mr_base(sid, tid)}/{mr_id}/comments")
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return json.dumps(result, indent=2)
 
 
-def add_mr_comment(mr_id: str, body: str, space_id: Optional[str] = None) -> str:
+def add_mr_comment(mr_id: str, body: str, space_id: Optional[str] = None, tool_id: Optional[str] = None) -> str:
     """Add a comment to a merge request."""
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
+    tid = _resolve_tool(tool_id)
+    if not tid:
+        return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
     result = get_client().post(
-        f"/spaces/{sid}/merge_requests/{mr_id}/comments",
+        f"{_mr_base(sid, tid)}/{mr_id}/comments",
         {"comment": {"body": body}},
     )
     if isinstance(result, dict) and "error" in result:
