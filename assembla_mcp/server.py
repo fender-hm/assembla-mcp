@@ -25,7 +25,7 @@ def main() -> None:
     if not api_key or not api_secret:
         print(
             "Error: ASSEMBLA_API_KEY and ASSEMBLA_API_SECRET environment variables must be set.\n"
-            "Copy .env.example to .env and fill in your credentials.",
+            "Set them in your MCP client config (env: block in settings.json) or export them before running.",
             file=sys.stderr,
         )
         sys.exit(1)

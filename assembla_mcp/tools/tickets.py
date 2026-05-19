@@ -2,24 +2,45 @@
 from __future__ import annotations
 import json
 from typing import Optional
+from pydantic import BaseModel, Field
+from mcp.server.fastmcp import Context
+from mcp.server.elicitation import AcceptedElicitation
 from assembla_mcp.client import get_client
 from assembla_mcp.state import state
+
+
+class _PriorityInput(BaseModel):
+    priority: int = Field(
+        description="1 = Highest, 2 = High, 3 = Medium, 4 = Low, 5 = Lowest",
+        ge=1,
+        le=5,
+    )
 
 
 def _resolve_space(space_id: Optional[str]) -> Optional[str]:
     return space_id or state.active_space_id
 
 
-def list_tickets(
+async def list_tickets(
+    ctx: Context,
     space_id: Optional[str] = None,
     status: Optional[str] = None,
     milestone_id: Optional[str] = None,
     component_id: Optional[str] = None,
     tag: Optional[str] = None,
+    priority: Optional[int] = None,
     page: int = 1,
     per_page: int = 25,
 ) -> str:
-    """List tickets in the active space. Filter by status, milestone_id, component_id, or tag."""
+    """List tickets in the active space. Filter by status, milestone_id, component_id, tag, or priority (1=highest, 5=lowest)."""
+    if priority is None:
+        elicit_result = await ctx.elicit(
+            message="Filter by priority? Enter 1 (Highest), 2 (High), 3 (Medium), 4 (Low), or 5 (Lowest). Cancel to list all.",
+            schema=_PriorityInput,
+        )
+        if isinstance(elicit_result, AcceptedElicitation):
+            priority = elicit_result.data.priority
+
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
@@ -36,6 +57,8 @@ def list_tickets(
         tickets = [t for t in tickets if str(t.get("component_id", "")) == component_id]
     if tag:
         tickets = [t for t in tickets if tag in (t.get("tags") or "")]
+    if priority is not None:
+        tickets = [t for t in tickets if t.get("priority") == priority]
     return json.dumps(tickets, indent=2)
 
 
