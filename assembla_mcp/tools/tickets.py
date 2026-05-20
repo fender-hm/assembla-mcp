@@ -153,6 +153,20 @@ def delete_ticket(number: int, space_id: Optional[str] = None) -> str:
     return f"Ticket #{number} deleted successfully."
 
 
+def add_ticket_comment(number: int, comment: str, space_id: Optional[str] = None) -> str:
+    """Add a comment to a ticket."""
+    sid = _resolve_space(space_id)
+    if not sid:
+        return "No active space. Call set_active_space first."
+    result = get_client().post(
+        f"/spaces/{sid}/tickets/{number}/ticket_comments",
+        {"ticket_comment": {"comment": comment}},
+    )
+    if isinstance(result, dict) and "error" in result:
+        return result["error"]
+    return json.dumps(result, indent=2)
+
+
 def register(mcp) -> None:
-    for fn in [list_tickets, get_ticket, create_ticket, update_ticket, delete_ticket]:
+    for fn in [list_tickets, get_ticket, create_ticket, update_ticket, delete_ticket, add_ticket_comment]:
         mcp.tool()(fn)
