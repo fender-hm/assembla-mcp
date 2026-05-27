@@ -4,7 +4,8 @@ import pytest
 from unittest.mock import MagicMock, AsyncMock, patch
 import assembla_mcp.state as state_module
 from assembla_mcp.tools.tickets import (
-    list_tickets, get_ticket, create_ticket, update_ticket, delete_ticket, add_ticket_comment
+    list_tickets, get_ticket, create_ticket, update_ticket, delete_ticket,
+    add_ticket_comment, list_ticket_comments,
 )
 
 
@@ -159,3 +160,27 @@ def test_add_ticket_comment_error_propagated(mock_client):
     mock_client.post.return_value = {"error": "Forbidden (403)"}
     result = add_ticket_comment(1, "Hi")
     assert "Forbidden" in result
+
+
+def test_list_ticket_comments(mock_client):
+    mock_client.get.return_value = [
+        {"id": "c1", "comment": "First comment"},
+        {"id": "c2", "comment": "Second comment"},
+    ]
+    result = list_ticket_comments(42)
+    data = json.loads(result)
+    assert len(data) == 2
+    assert data[0]["comment"] == "First comment"
+    mock_client.get.assert_called_once_with("/spaces/space-123/tickets/42/ticket_comments")
+
+
+def test_list_ticket_comments_no_active_space():
+    state_module.state.active_space_id = None
+    result = list_ticket_comments(1)
+    assert "No active space" in result
+
+
+def test_list_ticket_comments_error_propagated(mock_client):
+    mock_client.get.return_value = {"error": "Not found (404)"}
+    result = list_ticket_comments(999)
+    assert "Not found" in result
