@@ -64,8 +64,8 @@ def test_create_merge_request(mock_client):
     assert '"id": "mr2"' in result
     data = mock_client.post.call_args[0][1]["merge_request"]
     assert data["title"] == "New MR"
-    assert data["source_branch"] == "feature-branch"
-    assert data["target_branch"] == "main"
+    assert data["source_symbol"] == "feature-branch"
+    assert data["target_symbol"] == "main"
 
 
 def test_update_merge_request(mock_client):
@@ -74,6 +74,13 @@ def test_update_merge_request(mock_client):
     assert '"title": "Updated"' in result
     data = mock_client.put.call_args[0][1]["merge_request"]
     assert data["title"] == "Updated"
+
+
+def test_update_merge_request_target_branch(mock_client):
+    mock_client.put.return_value = {"id": "mr1"}
+    update_merge_request("mr1", target_branch="develop")
+    data = mock_client.put.call_args[0][1]["merge_request"]
+    assert data["target_symbol"] == "develop"
 
 
 def test_approve_merge_request(mock_client):

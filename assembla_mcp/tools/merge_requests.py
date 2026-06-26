@@ -65,7 +65,11 @@ def create_merge_request(
     space_id: Optional[str] = None,
     tool_id: Optional[str] = None,
 ) -> str:
-    """Create a new merge request."""
+    """Create a new merge request.
+
+    source_branch / target_branch: branch, tag, or revision names. These are sent
+    to Assembla as source_symbol / target_symbol.
+    """
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
@@ -75,8 +79,8 @@ def create_merge_request(
     data = {
         "merge_request": {
             "title": title,
-            "source_branch": source_branch,
-            "target_branch": target_branch,
+            "source_symbol": source_branch,
+            "target_symbol": target_branch,
             "description": description,
         }
     }
@@ -107,7 +111,7 @@ def update_merge_request(
     if description is not None:
         mr["description"] = description
     if target_branch is not None:
-        mr["target_branch"] = target_branch
+        mr["target_symbol"] = target_branch
     result = get_client().put(f"{_mr_base(sid, tid)}/{mr_id}", {"merge_request": mr})
     if isinstance(result, dict) and "error" in result:
         return result["error"]
