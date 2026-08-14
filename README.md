@@ -85,10 +85,11 @@ Restart Claude Code. At the start of each session call `set_active_space` to pic
 |------|-------------|
 | `list_merge_requests` | List merge requests (filter by `status`: `open`, `closed`, `ignored`) |
 | `get_merge_request` | Get a merge request by ID |
-| `create_merge_request` | Create a merge request |
-| `update_merge_request` | Update title, description, or target branch |
-| `approve_merge_request` | Approve a merge request |
-| `decline_merge_request` | Decline a merge request |
+| `create_merge_request` | Create a merge request (`source_cleanup` deletes the source branch on merge/ignore) |
+| `update_merge_request` | Update title, description, target branch, or source cleanup |
+| `approve_merge_request` | Approve by upvoting a version (latest by default) |
+| `ignore_merge_request` | Ignore (reject) a merge request without merging |
+| `merge_merge_request` | Apply and close a merge request |
 | `list_mr_comments` | List comments on a merge request |
 | `add_mr_comment` | Add a comment to a merge request |
 

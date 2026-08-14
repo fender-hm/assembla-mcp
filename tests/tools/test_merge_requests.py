@@ -4,8 +4,8 @@ from unittest.mock import MagicMock, patch
 import assembla_mcp.state as state_module
 from assembla_mcp.tools.merge_requests import (
     list_merge_requests, get_merge_request, create_merge_request,
-    update_merge_request, approve_merge_request, decline_merge_request,
-    list_mr_comments, add_mr_comment,
+    update_merge_request, approve_merge_request, ignore_merge_request,
+    merge_merge_request, list_mr_comments, add_mr_comment,
 )
 
 BASE = "/spaces/space-123/space_tools/tool-456/merge_requests"
@@ -68,6 +68,20 @@ def test_create_merge_request(mock_client):
     assert data["target_symbol"] == "main"
 
 
+def test_create_merge_request_omits_source_cleanup_by_default(mock_client):
+    mock_client.post.return_value = {"id": "mr2"}
+    create_merge_request("New MR", "feature-branch", "main")
+    data = mock_client.post.call_args[0][1]["merge_request"]
+    assert "source_cleanup" not in data
+
+
+def test_create_merge_request_source_cleanup(mock_client):
+    mock_client.post.return_value = {"id": "mr2"}
+    create_merge_request("New MR", "feature-branch", "main", source_cleanup=True)
+    data = mock_client.post.call_args[0][1]["merge_request"]
+    assert data["source_cleanup"] is True
+
+
 def test_update_merge_request(mock_client):
     mock_client.put.return_value = {"id": "mr1", "title": "Updated"}
     result = update_merge_request("mr1", title="Updated")
@@ -83,18 +97,62 @@ def test_update_merge_request_target_branch(mock_client):
     assert data["target_symbol"] == "develop"
 
 
-def test_approve_merge_request(mock_client):
-    mock_client.put.return_value = {"id": "mr1", "status": "approved"}
+def test_update_merge_request_source_cleanup(mock_client):
+    mock_client.put.return_value = {"id": "mr1"}
+    update_merge_request("mr1", source_cleanup=True)
+    data = mock_client.put.call_args[0][1]["merge_request"]
+    assert data["source_cleanup"] is True
+
+
+def test_update_merge_request_source_cleanup_false(mock_client):
+    mock_client.put.return_value = {"id": "mr1"}
+    update_merge_request("mr1", source_cleanup=False)
+    data = mock_client.put.call_args[0][1]["merge_request"]
+    assert data["source_cleanup"] is False
+
+
+def test_approve_merge_request_resolves_latest_version(mock_client):
+    mock_client.get.return_value = [
+        {"version": 1, "latest": False},
+        {"version": 2, "latest": True},
+    ]
+    mock_client.post.return_value = [{"vote": 1}]
     result = approve_merge_request("mr1")
-    assert "approved" in result.lower()
-    mock_client.put.assert_called_once_with(f"{BASE}/mr1/approve")
+    assert '"vote": 1' in result
+    mock_client.get.assert_called_once_with(f"{BASE}/mr1/versions")
+    mock_client.post.assert_called_once_with(f"{BASE}/mr1/versions/2/votes/upvote", {})
 
 
-def test_decline_merge_request(mock_client):
-    mock_client.put.return_value = {"id": "mr1", "status": "declined"}
-    result = decline_merge_request("mr1")
-    assert "declined" in result.lower()
-    mock_client.put.assert_called_once_with(f"{BASE}/mr1/decline")
+def test_approve_merge_request_explicit_version(mock_client):
+    mock_client.post.return_value = [{"vote": 1}]
+    approve_merge_request("mr1", version=3)
+    mock_client.get.assert_not_called()
+    mock_client.post.assert_called_once_with(f"{BASE}/mr1/versions/3/votes/upvote", {})
+
+
+def test_approve_merge_request_no_versions(mock_client):
+    mock_client.get.return_value = []
+    assert "no versions" in approve_merge_request("mr1").lower()
+    mock_client.post.assert_not_called()
+
+
+def test_ignore_merge_request(mock_client):
+    mock_client.put.return_value = {"success": True}
+    result = ignore_merge_request("mr1")
+    assert "ignored" in result.lower()
+    mock_client.put.assert_called_once_with(f"{BASE}/mr1/ignore")
+
+
+def test_merge_merge_request(mock_client):
+    mock_client.put.return_value = {"success": True}
+    result = merge_merge_request("mr1")
+    assert "merged" in result.lower()
+    mock_client.put.assert_called_once_with(f"{BASE}/mr1/merge_and_close")
+
+
+def test_ignore_merge_request_no_tool():
+    state_module.state.active_tool_id = None
+    assert "No active tool" in ignore_merge_request("mr1")
 
 
 def test_list_mr_comments(mock_client):
