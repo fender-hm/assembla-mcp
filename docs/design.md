@@ -28,7 +28,7 @@ assembla-mcp/
 │       ├── milestones.py    # list/get/create/update/delete milestones
 │       ├── tags.py          # list/add/remove tags on tickets
 │       ├── components.py    # list components (read-only)
-│       └── merge_requests.py# list/get/create/update/approve/decline/delete + comments
+│       └── merge_requests.py# list/get/create/update/approve/ignore/merge + comments
 ├── .env.example
 ├── pyproject.toml
 ├── README.md
@@ -115,10 +115,11 @@ Merge requests in Assembla are scoped to a space tool (git repo), not just a spa
 |------|-------------|
 | `list_merge_requests` | List merge requests (filter by `status`: `open`, `closed`, `ignored`; supports pagination) |
 | `get_merge_request` | Get a single merge request |
-| `create_merge_request` | Create a merge request |
-| `update_merge_request` | Update title, description, target branch |
-| `approve_merge_request` | Approve a merge request |
-| `decline_merge_request` | Decline a merge request |
+| `create_merge_request` | Create a merge request (`source_cleanup` deletes the source branch on merge/ignore) |
+| `update_merge_request` | Update title, description, target branch, source cleanup |
+| `approve_merge_request` | Approve by upvoting a version (latest by default) |
+| `ignore_merge_request` | Ignore (reject) a merge request without merging |
+| `merge_merge_request` | Apply and close a merge request |
 | `list_mr_comments` | List comments on a merge request |
 | `add_mr_comment` | Add a comment to a merge request |
 
