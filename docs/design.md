@@ -121,7 +121,7 @@ Merge requests in Assembla are scoped to a space tool (git repo), not just a spa
 | `ignore_merge_request` | Ignore (reject) a merge request without merging |
 | `merge_merge_request` | Apply and close a merge request |
 | `list_mr_comments` | List comments on a merge request |
-| `add_mr_comment` | Add a comment to a merge request |
+| `add_mr_comment` | Add a comment, posted on a version (latest by default) |
 
 All tools that operate on a space default to `active_space_id` from session state. An optional `space_id` parameter overrides this per call. Merge request tools additionally fall back to `active_tool_id`; pass `tool_id` explicitly to override.
 

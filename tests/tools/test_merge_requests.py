@@ -162,12 +162,36 @@ def test_list_mr_comments(mock_client):
     mock_client.get.assert_called_once_with(f"{BASE}/mr1/comments")
 
 
-def test_add_mr_comment(mock_client):
-    mock_client.post.return_value = {"id": "c2", "body": "Please fix tests"}
+def test_add_mr_comment_posts_to_latest_version(mock_client):
+    mock_client.get.return_value = [
+        {"version": 3, "latest": False},
+        {"version": 4, "latest": True},
+    ]
+    mock_client.post.return_value = {"id": "c2", "content": "Please fix tests"}
     result = add_mr_comment("mr1", "Please fix tests")
-    assert '"body": "Please fix tests"' in result
-    data = mock_client.post.call_args[0][1]["comment"]
-    assert data["body"] == "Please fix tests"
+    assert '"content": "Please fix tests"' in result
+    mock_client.get.assert_called_once_with(f"{BASE}/mr1/versions")
+    mock_client.post.assert_called_once_with(
+        f"{BASE}/mr1/versions/4/comments", {"content": "Please fix tests"}
+    )
+
+
+def test_add_mr_comment_explicit_version(mock_client):
+    mock_client.post.return_value = {"id": "c3"}
+    add_mr_comment("mr1", "Nit: typo", version=2)
+    mock_client.get.assert_not_called()
+    mock_client.post.assert_called_once_with(f"{BASE}/mr1/versions/2/comments", {"content": "Nit: typo"})
+
+
+def test_add_mr_comment_no_versions(mock_client):
+    mock_client.get.return_value = []
+    assert "no versions" in add_mr_comment("mr1", "hi").lower()
+    mock_client.post.assert_not_called()
+
+
+def test_add_mr_comment_no_tool():
+    state_module.state.active_tool_id = None
+    assert "No active tool" in add_mr_comment("mr1", "hi")
 
 
 def test_error_propagated(mock_client):
