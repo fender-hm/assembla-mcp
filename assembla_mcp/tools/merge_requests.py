@@ -17,6 +17,22 @@ def _mr_base(sid: str, tid: str) -> str:
     return f"/spaces/{sid}/space_tools/{tid}/merge_requests"
 
 
+def _latest_version(base: str, mr_id: str) -> tuple[Optional[int], Optional[str]]:
+    """Resolve a merge request's latest version number.
+
+    Returns (version, None) on success, or (None, error) when the versions could
+    not be fetched or the merge request has none. Note that the number wanted
+    here is the version's `version` field (1, 2, 3, ...), not its `id`.
+    """
+    versions = get_client().get(f"{base}/{mr_id}/versions")
+    if isinstance(versions, dict) and "error" in versions:
+        return None, versions["error"]
+    if not versions:
+        return None, f"Merge request {mr_id} has no versions."
+    latest = next((v for v in versions if v.get("latest")), versions[-1])
+    return latest["version"], None
+
+
 def list_merge_requests(
     status: Optional[str] = None,
     page: int = 1,
@@ -154,13 +170,9 @@ def approve_merge_request(
         return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
     base = _mr_base(sid, tid)
     if version is None:
-        versions = get_client().get(f"{base}/{mr_id}/versions")
-        if isinstance(versions, dict) and "error" in versions:
-            return versions["error"]
-        if not versions:
-            return f"Merge request {mr_id} has no versions to approve."
-        latest = next((v for v in versions if v.get("latest")), versions[-1])
-        version = latest["version"]
+        version, error = _latest_version(base, mr_id)
+        if error:
+            return error
     result = get_client().post(f"{base}/{mr_id}/versions/{version}/votes/upvote", {})
     if isinstance(result, dict) and "error" in result:
         return result["error"]
@@ -214,18 +226,35 @@ def list_mr_comments(mr_id: str, space_id: Optional[str] = None, tool_id: Option
     return json.dumps(result, indent=2)
 
 
-def add_mr_comment(mr_id: str, body: str, space_id: Optional[str] = None, tool_id: Optional[str] = None) -> str:
-    """Add a comment to a merge request."""
+def add_mr_comment(
+    mr_id: str,
+    body: str,
+    version: Optional[int] = None,
+    space_id: Optional[str] = None,
+    tool_id: Optional[str] = None,
+) -> str:
+    """Add a comment to a merge request.
+
+    Like votes, comments hang off a specific merge request version — posting to
+    the merge request's own /comments path returns 404, and that path only serves
+    GET. Leave version unset to comment on the latest one, which is what the web
+    UI does; the comment then also appears in list_mr_comments.
+
+    The payload is a bare {"content": ...}: wrapped variants are rejected
+    ({"merge_request_comment": {...}} → 400, {"comment": {...}} → 422).
+    """
     sid = _resolve_space(space_id)
     if not sid:
         return "No active space. Call set_active_space first."
     tid = _resolve_tool(tool_id)
     if not tid:
         return "No active tool. Call list_space_tools then set_active_tool with the git repo tool ID."
-    result = get_client().post(
-        f"{_mr_base(sid, tid)}/{mr_id}/comments",
-        {"comment": {"body": body}},
-    )
+    base = _mr_base(sid, tid)
+    if version is None:
+        version, error = _latest_version(base, mr_id)
+        if error:
+            return error
+    result = get_client().post(f"{base}/{mr_id}/versions/{version}/comments", {"content": body})
     if isinstance(result, dict) and "error" in result:
         return result["error"]
     return json.dumps(result, indent=2)

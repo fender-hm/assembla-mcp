@@ -91,7 +91,7 @@ Restart Claude Code. At the start of each session call `set_active_space` to pic
 | `ignore_merge_request` | Ignore (reject) a merge request without merging |
 | `merge_merge_request` | Apply and close a merge request |
 | `list_mr_comments` | List comments on a merge request |
-| `add_mr_comment` | Add a comment to a merge request |
+| `add_mr_comment` | Add a comment, posted on a version (latest by default) |
 
 ## Contributing
 
