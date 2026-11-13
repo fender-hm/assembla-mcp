@@ -27,7 +27,8 @@ def _latest_version(base: str, mr_id: str) -> tuple[Optional[int], Optional[str]
     versions = get_client().get(f"{base}/{mr_id}/versions")
     if isinstance(versions, dict) and "error" in versions:
         return None, versions["error"]
-    if not versions:
+    # An empty body (mapped to {"success": True} by the client) also means none.
+    if not isinstance(versions, list) or not versions:
         return None, f"Merge request {mr_id} has no versions."
     latest = next((v for v in versions if v.get("latest")), versions[-1])
     return latest["version"], None
@@ -223,6 +224,9 @@ def list_mr_comments(mr_id: str, space_id: Optional[str] = None, tool_id: Option
     result = get_client().get(f"{_mr_base(sid, tid)}/{mr_id}/comments")
     if isinstance(result, dict) and "error" in result:
         return result["error"]
+    if not isinstance(result, list):
+        # An MR without comments comes back as an empty body ({"success": True}).
+        result = []
     return json.dumps(result, indent=2)
 
 
