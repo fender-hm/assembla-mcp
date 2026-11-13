@@ -162,6 +162,20 @@ def test_list_mr_comments(mock_client):
     mock_client.get.assert_called_once_with(f"{BASE}/mr1/comments")
 
 
+def test_list_mr_comments_empty_body_is_empty_list(mock_client):
+    # Assembla answers an MR without comments with an empty body, which the client maps
+    # to {"success": True}; that must read as "no comments", not as a result object.
+    mock_client.get.return_value = {"success": True}
+    assert json.loads(list_mr_comments("mr1")) == []
+
+
+def test_add_mr_comment_versions_empty_body(mock_client):
+    # Same empty-body answer from /versions: report no versions instead of crashing.
+    mock_client.get.return_value = {"success": True}
+    assert "no versions" in add_mr_comment("mr1", "hi").lower()
+    mock_client.post.assert_not_called()
+
+
 def test_add_mr_comment_posts_to_latest_version(mock_client):
     mock_client.get.return_value = [
         {"version": 3, "latest": False},
