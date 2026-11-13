@@ -1,9 +1,25 @@
 from __future__ import annotations
 import atexit
+import re
 import httpx
-from typing import Optional
+from typing import Any, Optional
 
 _instance: Optional["AssemblaClient"] = None
+
+# Assembla stores text as 3-byte UTF-8 and answers 500 to any 4-byte character (emoji
+# like U+1F534). Drop them, with the variation selectors / joiners that trail them.
+_ASTRAL_RE = re.compile("[\U00010000-\U0010FFFF][\uFE0F\u200D]*")
+
+
+def strip_astral(value: Any) -> Any:
+    """Remove 4-byte UTF-8 characters from every string in a JSON-like payload."""
+    if isinstance(value, str):
+        return _ASTRAL_RE.sub("", value)
+    if isinstance(value, dict):
+        return {k: strip_astral(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [strip_astral(v) for v in value]
+    return value
 
 
 class AssemblaClient:
@@ -29,7 +45,7 @@ class AssemblaClient:
 
     def post(self, path: str, data: dict) -> dict | list:
         try:
-            r = self._http.post(f"{self.BASE_URL}{path}", headers=self._headers, json=data)
+            r = self._http.post(f"{self.BASE_URL}{path}", headers=self._headers, json=strip_astral(data))
             return self._handle(r)
         except httpx.TimeoutException:
             return {"error": "Request timed out — check your connection"}
@@ -38,7 +54,7 @@ class AssemblaClient:
 
     def put(self, path: str, data: dict | None = None) -> dict | list:
         try:
-            r = self._http.put(f"{self.BASE_URL}{path}", headers=self._headers, json=data or {})
+            r = self._http.put(f"{self.BASE_URL}{path}", headers=self._headers, json=strip_astral(data or {}))
             return self._handle(r)
         except httpx.TimeoutException:
             return {"error": "Request timed out — check your connection"}

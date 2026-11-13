@@ -1,7 +1,7 @@
 import pytest
 import httpx
 from unittest.mock import MagicMock, patch
-from assembla_mcp.client import AssemblaClient, init_client, get_client
+from assembla_mcp.client import AssemblaClient, init_client, get_client, strip_astral
 import assembla_mcp.client as client_module
 
 
@@ -74,3 +74,27 @@ def test_init_and_get_client():
 def test_get_client_before_init_raises():
     with pytest.raises(RuntimeError, match="not initialized"):
         get_client()
+
+def test_strip_astral_removes_emoji_keeps_bmp_text():
+    assert strip_astral("### 🔴 Blocker ✅ — Привет") == "###  Blocker ✅ — Привет"
+    assert strip_astral("dev 👨‍💻 done") == "dev  done"
+    assert strip_astral("ok 👍️!") == "ok !"
+
+
+def test_strip_astral_walks_nested_payload():
+    payload = {"comment": {"content": "a🟢b", "tags": ["x🔥", 3, None]}}
+    assert strip_astral(payload) == {"comment": {"content": "ab", "tags": ["x", 3, None]}}
+
+
+def test_post_sends_payload_without_emoji():
+    c = AssemblaClient("key", "secret")
+    with patch.object(c._http, "post", return_value=_make_response(201, {"id": 1})) as post:
+        c.post("/x", {"comment": {"content": "fix 🐛 now"}})
+    assert post.call_args.kwargs["json"] == {"comment": {"content": "fix  now"}}
+
+
+def test_put_sends_payload_without_emoji():
+    c = AssemblaClient("key", "secret")
+    with patch.object(c._http, "put", return_value=_make_response(200, {"id": 1})) as put:
+        c.put("/x", {"ticket": {"summary": "🚀 release"}})
+    assert put.call_args.kwargs["json"] == {"ticket": {"summary": " release"}}
